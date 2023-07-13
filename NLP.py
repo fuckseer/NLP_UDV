@@ -1,28 +1,17 @@
 import pandas as pd
-import numpy as np
 from gensim.topic_coherence.indirect_confirmation_measure import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.svm import SVC
-from gensim.models import LdaModel, LsiModel, TfidfModel, Word2Vec, FastText, Doc2Vec
-from gensim.corpora.dictionary import Dictionary
+from sklearn.feature_extraction.text import TfidfVectorizer
 import re
-import string
 import nltk
 
 nltk.download('wordnet')
 nltk.download('punkt')
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.stem.porter import PorterStemmer
-from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from pymorphy3 import MorphAnalyzer
 
 from sklearn.decomposition import TruncatedSVD
 from sklearn.cluster import KMeans
-
-import matplotlib.pyplot as plt
-from sklearn.metrics import silhouette_score
-from gensim.matutils import corpus2dense
 
 import spacy
 import ru_core_news_sm
@@ -64,36 +53,11 @@ def get_clastering_KMeans(vectors, n_clusters):
     cluster_labels = kmeans.fit_predict(vectors)
     return cluster_labels
 
-
-# Обработка текста законов
-tokens = df['Текст']
-tokens = tokens.apply(lambda token: process_text(token))
-tokens = [[token for token in sublist if token not in ['ст', 'n']] for sublist in tokens]
-tokens = pd.Series(tokens)
-df['Токены'] = tokens
-df["Обработанный текст"] = tokens.apply(join_list)
-
-# Обработка названия законов
-name = df['Название закона'].apply(lambda text: process_text(text))
-name = pd.Series(name)
-name = name.apply(join_list)
-
-lsi_vectors = get_lsi_vectors(name)
-
-df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
-
-
 def extract_organization(text):
     nlp = ru_core_news_sm.load()
     doc = nlp(text)
     organizations = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
     return organizations[0] if organizations else None
-
-
-df['Кем принят'] = df['Текст'].apply(extract_organization)
-
-df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
-
 
 def extract_law_names(text):
     pattern = r'N\s+\d+-ФЗ\s+"(.*?)"'
@@ -109,10 +73,6 @@ def extract_law_names(text):
         return ', '.join(filtered_matches)
     else:
         return ''
-
-
-df['Упомянутые законы'] = df['Текст'].apply(extract_law_names)
-
 
 def find_duplicate_quotes_tfidf(df):
     vectorizer = TfidfVectorizer()
@@ -134,10 +94,6 @@ def find_duplicate_quotes_tfidf(df):
     duplicates_df = pd.DataFrame(duplicates)
     return duplicates_df
 
-
-duplicates_df = find_duplicate_quotes_tfidf(df)
-
-
 def create_references_df(df):
 
     references_df = pd.DataFrame(columns=['Found_Law_Index', 'Name_Index'])
@@ -154,5 +110,25 @@ def create_references_df(df):
 
     return references_df
 
+# Обработка текста законов
+tokens = df['Текст']
+tokens = tokens.apply(lambda token: process_text(token))
+tokens = [[token for token in sublist if token not in ['ст', 'n']] for sublist in tokens]
+tokens = pd.Series(tokens)
+df['Токены'] = tokens
+df["Обработанный текст"] = tokens.apply(join_list)
 
+# Обработка названия законов
+name = df['Название закона'].apply(lambda text: process_text(text))
+name = pd.Series(name)
+name = name.apply(join_list)
+
+lsi_vectors = get_lsi_vectors(name)
+
+df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
+df['Кем принят'] = df['Текст'].apply(extract_organization)
+df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
+df['Упомянутые законы'] = df['Текст'].apply(extract_law_names)
+
+duplicates_df = find_duplicate_quotes_tfidf(df)
 references_df = create_references_df(df)
