@@ -38,3 +38,4 @@ def get_law_text(url):
     law_text = law_text_elements.get_text(separator=' ')
     law_text = law_text.replace('\n', ' ').replace('\r', '')
     return law_text.strip()
+
