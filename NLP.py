@@ -16,7 +16,7 @@ from sklearn.cluster import KMeans
 import spacy
 import ru_core_news_sm
 
-from AddData import df
+from main import df
 
 
 def process_text(text):
@@ -42,8 +42,8 @@ def join_list(tab):
 
 
 def get_lsi_vectors(tokens):
-    tfidf_vectorizer = TfidfVectorizer(max_df=0.8, min_df=5)
-    tfidf_matrix = tfidf_vectorizer.fit_transform(tokens)
+    tfidf_vectorized = TfidfVectorizer(max_df=0.8, min_df=5)
+    tfidf_matrix = tfidf_vectorized.fit_transform(tokens)
     lsi_model = TruncatedSVD(n_components=100)
     return lsi_model.fit_transform(tfidf_matrix)
 
@@ -53,11 +53,13 @@ def get_clastering_KMeans(vectors, n_clusters):
     cluster_labels = kmeans.fit_predict(vectors)
     return cluster_labels
 
+
 def extract_organization(text):
     nlp = ru_core_news_sm.load()
     doc = nlp(text)
     organizations = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
     return organizations[0] if organizations else None
+
 
 def extract_law_names(text):
     pattern = r'N\s+\d+-ФЗ\s+"(.*?)"'
@@ -74,9 +76,10 @@ def extract_law_names(text):
     else:
         return ''
 
+
 def find_duplicate_quotes_tfidf(df):
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(df['Текст'])
+    vectorized = TfidfVectorizer()
+    tfidf_matrix = vectorized.fit_transform(df['Текст'])
     similarity_matrix = cosine_similarity(tfidf_matrix)
     duplicates = []
     n_docs = len(df)
@@ -94,8 +97,8 @@ def find_duplicate_quotes_tfidf(df):
     duplicates_df = pd.DataFrame(duplicates)
     return duplicates_df
 
-def create_references_df(df):
 
+def create_references_df(df):
     references_df = pd.DataFrame(columns=['Found_Law_Index', 'Name_Index'])
     for i, law_name in enumerate(df['Упомянутые законы']):
         if law_name:
@@ -110,25 +113,27 @@ def create_references_df(df):
 
     return references_df
 
-# Обработка текста законов
-tokens = df['Текст']
-tokens = tokens.apply(lambda token: process_text(token))
-tokens = [[token for token in sublist if token not in ['ст', 'n']] for sublist in tokens]
-tokens = pd.Series(tokens)
-df['Токены'] = tokens
-df["Обработанный текст"] = tokens.apply(join_list)
 
-# Обработка названия законов
-name = df['Название закона'].apply(lambda text: process_text(text))
-name = pd.Series(name)
-name = name.apply(join_list)
+def analyze_data(df):
+    tokens = df['Текст']
+    tokens = tokens.apply(lambda token: process_text(token))
+    tokens = [[token for token in sublist if token not in ['ст', 'n']] for sublist in tokens]
+    tokens = pd.Series(tokens)
+    df['Токены'] = tokens
+    df["Обработанный текст"] = tokens.apply(join_list)
+    name = df['Название закона'].apply(lambda text: process_text(text))
+    name = pd.Series(name)
+    name = name.apply(join_list)
 
-lsi_vectors = get_lsi_vectors(name)
+    lsi_vectors = get_lsi_vectors(name)
 
-df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
-df['Кем принят'] = df['Текст'].apply(extract_organization)
-df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
-df['Упомянутые законы'] = df['Текст'].apply(extract_law_names)
+    df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
+    df['Кем принят'] = df['Текст'].apply(extract_organization)
+    df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
+    df['Упомянутые законы'] = df['Текст'].apply(extract_law_names)
+
+    return df
+
 
 duplicates_df = find_duplicate_quotes_tfidf(df)
 references_df = create_references_df(df)
