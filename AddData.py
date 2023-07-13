@@ -1,13 +1,15 @@
+from datetime import datetime
+
 from GetData import links, get_laws, get_law_text
 import pandas as pd
 from sqlalchemy import create_engine
 from ConnectDB import connect_postgresql
-from main import df
 import NLP
 
 
-def prepare_df(df):
+def prepare_df():
     all_results = []
+    df = pd.DataFrame(columns=['ID', 'Название закона', 'Дата', 'Ссылка', 'Вид закона'])
 
     for key, link in links.items():
         results = get_laws(link, key)
@@ -19,6 +21,7 @@ def prepare_df(df):
 
     df['Ссылка'] = df['Ссылка'].apply(lambda x: "https://rg.ru/documents" + x)
     df['Текст'] = df['Ссылка'].apply(get_law_text)
+    df['Дата'] = df['Дата'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d'))
 
     return NLP.analyze_data(df)
 
@@ -30,4 +33,5 @@ def add_data(data):
     data.to_sql('data', engine, if_exists='replace', index=False)
     conn.close()
 
-print(prepare_df(df))
+pd.set_option('display.max_columns', None)
+print(prepare_df())

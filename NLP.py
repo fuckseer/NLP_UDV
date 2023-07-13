@@ -16,7 +16,6 @@ from sklearn.cluster import KMeans
 import spacy
 import ru_core_news_sm
 
-from main import df
 
 
 def process_text(text):
@@ -44,7 +43,7 @@ def join_list(tab):
 def get_lsi_vectors(tokens):
     tfidf_vectorized = TfidfVectorizer(max_df=0.8, min_df=5)
     tfidf_matrix = tfidf_vectorized.fit_transform(tokens)
-    lsi_model = TruncatedSVD(n_components=100)
+    lsi_model = TruncatedSVD(n_components=7)
     return lsi_model.fit_transform(tfidf_matrix)
 
 
@@ -61,20 +60,26 @@ def extract_organization(text):
     return organizations[0] if organizations else None
 
 
-def extract_law_names(text):
+import re
+
+
+def extract_law_names(df):
     pattern = r'N\s+\d+-ФЗ\s+"(.*?)"'
     pattern2 = r'пункт\s+\d+\s+статьи\s+\d+\s+части\s+\w+\s+(.*?)(?=\()'
 
-    matches = re.findall(pattern, text)
-    matches2 = re.findall(pattern2, text)
+    df['Упоминаемые законы'] = ''
 
-    filtered_matches = [match for match in matches if match not in df['Название закона']]
-    filtered_matches.extend(matches2)
+    for i, text in enumerate(df['Текст']):
+        matches = re.findall(pattern, text)
+        filtered_matches = [match for match in matches if match not in df['Name'][i]]
 
-    if filtered_matches:
-        return ', '.join(filtered_matches)
-    else:
-        return ''
+        matches2 = re.findall(pattern2, text)
+        filtered_matches.extend(matches2)
+
+        if filtered_matches:
+             df.at[i, 'Упоминаемые законы'] = ', '.join(filtered_matches)
+
+        return df['Упоминаемые законы']
 
 
 def find_duplicate_quotes_tfidf(df):
@@ -130,10 +135,10 @@ def analyze_data(df):
     df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
     df['Кем принят'] = df['Текст'].apply(extract_organization)
     df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
-    df['Упомянутые законы'] = df['Текст'].apply(extract_law_names)
+    df['Упомянутые законы'] = extract_law_names(df)
 
     return df
 
 
-duplicates_df = find_duplicate_quotes_tfidf(df)
-references_df = create_references_df(df)
+#duplicates_df = find_duplicate_quotes_tfidf(df)
+#references_df = create_references_df(df)

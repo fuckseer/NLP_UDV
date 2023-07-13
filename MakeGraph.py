@@ -1,8 +1,7 @@
 from random import random
 
 from pyvis.network import Network
-from NLP import references_df, duplicates_df
-from main import df
+from NLP import references_df, duplicates_df,df
 
 graph = Network(directed=True)
 
