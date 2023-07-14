@@ -1,4 +1,7 @@
 import pandas as pd
+from gensim import corpora, models
+from gensim.corpora import Dictionary
+from gensim.models import LdaModel
 from gensim.topic_coherence.indirect_confirmation_measure import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import re
@@ -47,10 +50,19 @@ def get_lsi_vectors(tokens):
     return lsi_model.fit_transform(tfidf_matrix)
 
 
-def get_clastering_KMeans(vectors, n_clusters):
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    cluster_labels = kmeans.fit_predict(vectors)
-    return cluster_labels
+def get_clastering_LDA(tokens):
+    mydict = Dictionary(tokens)
+    corpus = [mydict.doc2bow(text) for text in tokens]
+    lda_model = LdaModel(corpus=corpus, id2word=mydict, num_topics=12)
+
+    topic_list = []
+    doc_topics = lda_model[corpus]
+
+    for doc in doc_topics:
+        topic = max(doc, key=lambda x: x[1])[0]
+        topic_list.append(topic)
+
+    return topic_list
 
 
 def extract_organization(text):
@@ -128,11 +140,8 @@ def analyze_data(df):
     df["Обработанный текст"] = tokens.apply(join_list)
     name = df['Название закона'].apply(lambda text: process_text(text))
     name = pd.Series(name)
-    name = name.apply(join_list)
 
-    lsi_vectors = get_lsi_vectors(name)
-
-    df['Номер темы'] = get_clastering_KMeans(lsi_vectors, 12)
+    df['Номер темы'] = get_clastering_LDA(name)
     df['Кем принят'] = df['Текст'].apply(extract_organization)
     df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
     df['Упомянутые законы'] = extract_law_names(df)
