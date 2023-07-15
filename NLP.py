@@ -77,7 +77,7 @@ def extract_organization(text):
 
 
 def extract_law_names(df):
-    pattern = r'N\s+\d+-ФЗ\s+"(.*?)"'
+    pattern = r'"(О\s[^"]+)"'
     pattern2 = r'пункт\s+\d+\s+статьи\s+\d+\s+части\s+\w+\s+(.*?)(?=\()'
 
     df['Упоминаемые законы'] = ''
@@ -108,7 +108,7 @@ def find_duplicate_quotes_tfidf(df):
             duplicate = {
                 'Law Index': i,
                 'Duplicate Indices': duplicate_indices,
-                'Duplicate Text': df.iloc[i]['Text']
+                'Duplicate Text': df.iloc[i]['Текст']
             }
             duplicates.append(duplicate)
 
@@ -118,18 +118,21 @@ def find_duplicate_quotes_tfidf(df):
 
 def create_references_df(df):
     references_df = pd.DataFrame(columns=['Found_Law_Index', 'Name_Index'])
-    for i, law_name in enumerate(df['Упоминаемые законы']):
-        if law_name:
-            pattern = re.escape(law_name)
-            regex = re.compile(pattern, re.IGNORECASE)
-            for j, name in enumerate(df['Название закона']):
-                match = regex.search(name)
-                if match:
-                    references_df.at[i, 'Found_Law_Index'] = i
-                    references_df.at[i, 'Name_Index'] = j
-                    break
-
+    for i, law_names in enumerate(df['Упоминаемые законы']):
+        if law_names:
+            law_names = [name.strip() for name in law_names.split(',')]
+            for law_name in law_names:
+                pattern = re.escape(law_name)
+                regex = re.compile(pattern, re.IGNORECASE)
+                for j, name in enumerate(df['Название закона']):
+                    if i != j:
+                        match = regex.search(name)
+                        if match:
+                            references_df.at[i, 'Found_Law_Index'] = i
+                            references_df.at[i, 'Name_Index'] = j
+                            break
     return references_df
+
 
 
 def analyze_data(df):

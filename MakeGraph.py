@@ -20,27 +20,28 @@ def visualize_graph(df, duplicates_df, references_df):
         color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
         color_map[i] = color
 
-    # Добавляем все узлы в граф
     for i, row in df.iterrows():
-        cluster = row['Вид закона']
+        cluster = row['Номер темы']
         name = row['Название закона']
         date = row['Дата']
         link = row['Ссылка']
         color = color_map.get(cluster, 'gray')
         graph.add_node(i, label='', title=html_template.format(name=name, date=date, link=link), color=color)
 
-    # Добавляем связи на основе duplicates_df
-    for i, row in duplicates_df.iterrows():
-        law_index = row['Law Index']
-        duplicate_indices = row['Duplicate Indices']
-        for duplicate_index in duplicate_indices:
-            graph.add_edge(law_index, duplicate_index, color='purple')
+    # Добавляем связи на основе duplicates_df только если он не пустой
+    if not duplicates_df.empty:
+        for i, row in duplicates_df.iterrows():
+            law_index = row['Law Index']
+            duplicate_indices = row['Duplicate Indices']
+            for duplicate_index in duplicate_indices:
+                graph.add_edge(law_index, duplicate_index, color='purple')
 
-    # Добавляем связи на основе references_df
-    for i, row in references_df.iterrows():
-        found_law_index = row['Found_Law_Index']
-        name_index = row['Name_Index']
-        graph.add_edge(found_law_index, name_index, color='blue')
+    # Добавляем связи на основе references_df только если он не пустой
+    if not references_df.empty:
+        for i, row in references_df.iterrows():
+            found_law_index = row['Found_Law_Index']
+            name_index = row['Name_Index']
+            graph.add_edge(found_law_index, name_index, color='blue')
 
     # Отображаем граф
     graph.show_buttons(filter_=['nodes'])
