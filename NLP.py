@@ -16,8 +16,12 @@ from pymorphy3 import MorphAnalyzer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.cluster import KMeans
 
+from sklearn.metrics.pairwise import  pairwise_distances
+
 import spacy
 import ru_core_news_sm
+
+from MakeGraph import visualize_graph
 
 
 
@@ -72,9 +76,6 @@ def extract_organization(text):
     return organizations[0] if organizations else None
 
 
-import re
-
-
 def extract_law_names(df):
     pattern = r'N\s+\d+-ФЗ\s+"(.*?)"'
     pattern2 = r'пункт\s+\d+\s+статьи\s+\d+\s+части\s+\w+\s+(.*?)(?=\()'
@@ -83,21 +84,21 @@ def extract_law_names(df):
 
     for i, text in enumerate(df['Текст']):
         matches = re.findall(pattern, text)
-        filtered_matches = [match for match in matches if match not in df['Name'][i]]
+        filtered_matches = [match for match in matches if match not in df['Упоминаемые законы'][i]]
 
         matches2 = re.findall(pattern2, text)
         filtered_matches.extend(matches2)
 
         if filtered_matches:
-             df.at[i, 'Упоминаемые законы'] = ', '.join(filtered_matches)
+            df.at[i, 'Упоминаемые законы'] = ', '.join(filtered_matches)
 
-        return df['Упоминаемые законы']
+    return df['Упоминаемые законы']
 
 
 def find_duplicate_quotes_tfidf(df):
     vectorized = TfidfVectorizer()
     tfidf_matrix = vectorized.fit_transform(df['Текст'])
-    similarity_matrix = cosine_similarity(tfidf_matrix)
+    similarity_matrix = 1 - pairwise_distances(tfidf_matrix, metric='cosine')
     duplicates = []
     n_docs = len(df)
     for i in range(n_docs):
@@ -117,7 +118,7 @@ def find_duplicate_quotes_tfidf(df):
 
 def create_references_df(df):
     references_df = pd.DataFrame(columns=['Found_Law_Index', 'Name_Index'])
-    for i, law_name in enumerate(df['Упомянутые законы']):
+    for i, law_name in enumerate(df['Упоминаемые законы']):
         if law_name:
             pattern = re.escape(law_name)
             regex = re.compile(pattern, re.IGNORECASE)
@@ -144,10 +145,16 @@ def analyze_data(df):
     df['Номер темы'] = get_clastering_LDA(name)
     df['Кем принят'] = df['Текст'].apply(extract_organization)
     df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
-    df['Упомянутые законы'] = extract_law_names(df)
+    df['Упоминаемые законы'] = extract_law_names(df)
 
+    duplicates_df = find_duplicate_quotes_tfidf(df)
+    references_df = create_references_df(df)
+    print(df)
+    print(duplicates_df)
+    print(references_df)
+    visualize_graph(df, duplicates_df,references_df)
     return df
 
 
-#duplicates_df = find_duplicate_quotes_tfidf(df)
-#references_df = create_references_df(df)
+
+
