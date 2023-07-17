@@ -27,11 +27,8 @@ def prepare_df():
 
 
 def add_data(data):
-    conn = connect_postgresql('localhost', 5432, 'postgres', 'postgres', 'ksusha170402')
+    conn = connect_postgresql()
     engine = create_engine('postgresql+psycopg2://postgres:ksusha170402@localhost/postgres')
 
     data.to_sql('data', engine, if_exists='replace', index=False)
     conn.close()
-
-pd.set_option('display.max_columns', None)
-print(prepare_df())

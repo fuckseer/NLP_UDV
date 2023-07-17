@@ -1,17 +1,15 @@
 import psycopg2
 
 
-def connect_postgresql(host, port,
-                       dbname, user,
-                       password):
+def connect_postgresql():
     try:
-        conn = psycopg2.connect(host=host,
-                                port=port,
-                                dbname=dbname,
-                                user=user,
+        conn = psycopg2.connect(host='localhost',
+                                port=5432,
+                                dbname='postgres',
+                                user='postgres',
                                 sslmode='prefer',
                                 connect_timeout=10,
-                                password=password)
+                                password='ksusha170402')
     except:
         print('Can`t establish connection to database')
 

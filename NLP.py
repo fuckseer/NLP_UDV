@@ -13,9 +13,6 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from pymorphy3 import MorphAnalyzer
 
-from sklearn.decomposition import TruncatedSVD
-from sklearn.cluster import KMeans
-
 from sklearn.metrics.pairwise import  pairwise_distances
 
 import spacy
@@ -47,13 +44,6 @@ def join_list(tab):
     return " ".join((''.join(l) for l in tab))
 
 
-def get_lsi_vectors(tokens):
-    tfidf_vectorized = TfidfVectorizer(max_df=0.8, min_df=5)
-    tfidf_matrix = tfidf_vectorized.fit_transform(tokens)
-    lsi_model = TruncatedSVD(n_components=7)
-    return lsi_model.fit_transform(tfidf_matrix)
-
-
 def get_clastering_LDA(tokens):
     mydict = Dictionary(tokens)
     corpus = [mydict.doc2bow(text) for text in tokens]
@@ -69,11 +59,11 @@ def get_clastering_LDA(tokens):
     return topic_list
 
 
-def extract_organization(text):
-    nlp = ru_core_news_sm.load()
-    doc = nlp(text)
-    organizations = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
-    return organizations[0] if organizations else None
+#def extract_organization(text):
+#    nlp = ru_core_news_sm.load()
+#    doc = nlp(text)
+#    organizations = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
+#    return organizations[0] if organizations else None
 
 
 def extract_law_names(df):
@@ -146,7 +136,7 @@ def analyze_data(df):
     name = pd.Series(name)
 
     df['Номер темы'] = get_clastering_LDA(name)
-    df['Кем принят'] = df['Текст'].apply(extract_organization)
+    #df['Кем принят'] = df['Текст'].apply(extract_organization)
     df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
     df['Упоминаемые законы'] = extract_law_names(df)
 
