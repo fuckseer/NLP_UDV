@@ -1,3 +1,5 @@
+import locale
+
 import pandas as pd
 from gensim import corpora, models
 from gensim.corpora import Dictionary
@@ -19,7 +21,6 @@ import spacy
 import ru_core_news_sm
 
 from MakeGraph import visualize_graph
-
 
 
 def process_text(text):
@@ -66,24 +67,36 @@ def get_clastering_LDA(tokens):
 #    return organizations[0] if organizations else None
 
 
-def extract_law_names(df):
-    pattern = r'"(О\s[^"]+)"'
-    pattern2 = r'пункт\s+\d+\s+статьи\s+\d+\s+части\s+\w+\s+(.*?)(?=\()'
+r'"(.*?)"'
+def extract_law_names(text):
+    prefix_pattern = r'\b от \d+ \w+ \d+ года № \d+-ФЗ\b'
+    law_names = []
 
-    df['Упоминаемые законы'] = ''
+    # Находим все совпадения с префиксом
+    prefix_matches = re.finditer(prefix_pattern, text)
 
-    for i, text in enumerate(df['Текст']):
-        matches = re.findall(pattern, text)
-        filtered_matches = [match for match in matches if match not in df['Упоминаемые законы'][i]]
+    for match in prefix_matches:
+        # Извлекаем позицию совпадения
+        start_position = match.start()
+        end_position = match.end()
 
-        matches2 = re.findall(pattern2, text)
-        filtered_matches.extend(matches2)
+        # Ищем закон, следующий за датой, игнорируя многочисленные пробелы и теги
+        law_name_match = re.search(r'"(.*?)"', text[end_position:])
+        if law_name_match:
+            law_name = law_name_match.group(1)
+            law_names.append({'law_name': law_name, 'prefix_match': match.group(), 'url': None})
 
-        if filtered_matches:
-            df.at[i, 'Упоминаемые законы'] = ', '.join(filtered_matches)
+    return law_names
 
-    return df['Упоминаемые законы']
+def find_law_link(prefix_match, referenced_laws):
 
+    law_name = re.search(r'"(.*?)"', prefix_match).group(1)
+    link_pattern = re.compile(r'\((.*?)\)')
+    links = link_pattern.findall(referenced_laws)
+    for link in links:
+        if law_name in link:
+            return link
+    return None
 
 def find_duplicate_quotes_tfidf(df):
     vectorized = TfidfVectorizer()
@@ -123,7 +136,19 @@ def create_references_df(df):
                             break
     return references_df
 
+def get_date(text):
+    pattern = r"(\d{2}\s\w+\s\d{4})"
+    date = re.search(pattern, text)
+    date = date.group(1) if date else None
+    locale.setlocale(locale.LC_TIME, 'ru_RU')
+    return pd.to_datetime(date, format='%d %B %Y', errors='coerce')
 
+
+def get_text(text):
+    text = ' '.join(paragraph.get_text() for paragraph in text)
+    text = ' '.join(text.split())
+    text = text.replace('\n', ' ')
+    return text.replace('\n\n', '\n')
 
 def analyze_data(df):
     tokens = df['Текст']

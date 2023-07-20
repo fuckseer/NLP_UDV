@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from GetData import links, get_laws, get_law_text
+from GetData import links, get_laws
 import pandas as pd
 from sqlalchemy import create_engine
 from ConnectDB import connect_postgresql
@@ -32,3 +32,7 @@ def add_data(data):
 
     data.to_sql('data', engine, if_exists='replace', index=False)
     conn.close()
+
+item = links['О персональных данных']
+
+add_data()

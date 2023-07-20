@@ -1,74 +1,31 @@
+import re
+from datetime import datetime
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from ConnectDB import connect_postgresql
-
+import locale
+from NLP import get_date, get_text, extract_law_names, find_law_link
 
 links = {
-    'Федеральный закон':' https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689089191],%22doctype_slug%22:[%22fedzakon%22]%7D%7D',
-    'Конституция':'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689090895],%22doctype_slug%22:[%22main%22]%7D%7D',
-    'Постановление': 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689091592],%22doctype_slug%22:[%22postanov%22]%7D%7D',
-    'Указ': 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689093793],%22doctype_slug%22:[%22ukaz%22]%7D%7D',
-    'Приказ': 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689093856],%22doctype_slug%22:[%22prikaz%22]%7D%7D',
-    'Cообщение':'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689094036],%22doctype_slug%22:[%22soobshenie%22]%7D%7D',
-    'Распоряжение': 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689094128],%22doctype_slug%22:[%22raspr%22]%7D%7D',
-    'Законопроект': 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:10000,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689094196],%22doctype_slug%22:[%22zakonoproekt%22]%7D%7D'
-}
+    'О персональных данных': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102108261&page=1&rdk=31'
+    }
 
 
-def get_laws(link, type):
-    response = requests.get(link)
-    print('Количество символов',len(response.text))
-    data_json = response.json()
-    hits = data_json.get('hits', {}).get('hits', [])
-    results = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        doc_id = source.get("id", "")
-        title = source.get("title", "")
-        publish_at = source.get("publish_at", "")
-        url = source.get("url", "")
-        results.append((doc_id, title, publish_at, url, type))
-    return results
-
-def get_law_text(url):
+def get_laws(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
-    law_text_elements = soup.find('div', class_='PageDocumentContent_text__6yNRz')
-    if law_text_elements is None:
-        return ''
-    law_text = law_text_elements.get_text(separator=' ')
-    law_text = law_text.replace('\n', ' ').replace('\r', '')
-    return law_text.strip()
-
-def get_news(df):
-    url = 'https://apisearch.rg.ru/filter?query=%7B%22article%22:%7B%22priority%22:10,%22size%22:100,%22phrase%22:%22%22,%22source_type%22:%22document%22,%22fields%22:[%22id%22,%22url%22,%22images%22,%22title%22,%22link_title%22,%22announce%22,%22label%22,%22is_adv%22,%22tags%22,%22publish_at%22,%22source_type%22],%22sort%22:%22publish_at:desc%22,%22date%22:[631152000,1689272139]%7D%7D'
-    type = ''
-    news = get_laws(url,type)
-    news_df = pd.DataFrame(news, columns=['ID', 'Название закона', 'Дата', 'Ссылка', 'Вид закона'])
-    old_rows = []
-    for index, row in news_df.iterrows():
-        law_name = row['Название закона']
-
-        if not df['Название закона'].str.contains(law_name).any():
-            news_df = news_df['Ссылка'].apply(lambda x: "https://rg.ru/documents" + x)
-            news_df['Текст'] = news_df['Ссылка'].apply(get_law_text)
-
-        else:
-            old_rows.append(index)
-
-    news_df = news_df.drop(old_rows)
-    return news_df
-
+    return soup
 
 def get_laws_from_database(offset, per_page):
     conn = connect_postgresql()
     cursor = conn.cursor()
 
-    sql_query = f"SELECT ID, Название закона, " \
-                "Дата, Ссылка, Вид закона, Текст, " \
-                "Токены, Обработанный текст, Номер темы, " \
-                "Утратившие силу, Упоминаемые законы" \
+    sql_query = f'SELECT "ID", "Название закона", ' \
+                '"Дата", "Ссылка", "Вид закона", "Текст", ' \
+                '"Токены", "Обработанный текст", "Номер темы", ' \
+                '"Утратившие силу", "Упоминаемые законы" ' \
                 f"FROM data LIMIT {per_page} OFFSET {offset};"
 
     cursor.execute(sql_query)
@@ -81,3 +38,86 @@ def get_laws_from_database(offset, per_page):
     return laws_data
 
 
+def get_law_from_gov(url):
+    response = requests.get(url)
+
+    if response.status_code == 200:
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        doc_id = url.split('nd=')[1].split('&')[0]
+        doc_title = soup.find('title').getText()
+        date_element = soup.find_all('p', class_='I')[-2]
+        date = get_date(date_element.text)
+        paragraphs = soup.find_all('p')
+        text = get_text(paragraphs)
+        doc_links = soup.find_all('a', class_='doclink')
+        referenced_laws = ['{} ({})'.format(link.getText(), link['href']) for link in doc_links]
+        referenced_laws = ' '.join(referenced_laws)
+        print(referenced_laws)
+        #print(referenced_laws)
+        #laws = extract_law_names(text)
+        #for law in laws:
+        #    law['url'] = find_law_link(law['prefix_match'], referenced_laws)
+        #laws = find_next_law_link(laws,referenced_laws)
+        #print(laws)
+
+        data = {
+            'ID': [doc_id],
+            'Название закона': [doc_title],
+            'Дата': [date],
+            'Ссылка': [url],
+            'Текст': [text],
+            'Упоминаемые законы': [referenced_laws]
+        }
+
+        return pd.DataFrame(data)
+    else:
+        return f'Ошибка запроса: {response.status_code}'
+
+def get_law_info(ID):
+    url = f'http://pravo.gov.ru/proxy/ips/?doc_itself=&vkart=card&nd={ID}&page=1&rdk=31'
+    responce = requests.get(url)
+    soup = BeautifulSoup(responce.content, 'html.parser')
+    status = soup.find('div', class_='DC_status').text
+    key_words = soup.find('div', id='klsl', class_='wrapper').text
+    table_rows = soup.find_all('tr')
+    categories_dict = {}
+    for row in table_rows:
+        cells = row.find_all('td')
+        if len(cells) == 2:
+            code = cells[0].text.strip()
+            name = cells[1].text.strip()
+            categories_dict[code] = name
+
+    return status, key_words, categories_dict
+
+def get_referenced_laws(ID):
+    url = f'http://pravo.gov.ru/proxy/ips/?docrefs.xml=&oid={ID}&refs=1'
+    responce = requests.get(url)
+    soup = BeautifulSoup(responce.content, 'html.parser')
+    result = []
+
+    for reference_elem in soup.find_all('reference'):
+        reference_dict = {}
+
+        refkind = reference_elem.find('refkind').text
+        oid = reference_elem.find('docname').get('oid')
+        rdk = reference_elem.find('docname').get('rdk')
+        docname_text = reference_elem.find('docname').text.strip()
+        docannot = reference_elem.find('docannot').text
+
+        docname_parts = docname_text.split(' от ')
+        doc_type = docname_parts[0]
+        doc_date = docname_parts[1].split(' № ')[0]
+
+        reference_dict['Вид'] = refkind
+        reference_dict['ID'] = oid
+        reference_dict['Тип'] = doc_type
+        reference_dict['Дата'] = doc_date
+        reference_dict['Название закона'] = docannot
+
+        result.append(reference_dict)
+
+    return result
+
+get_referenced_laws(102108261)
