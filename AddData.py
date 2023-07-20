@@ -8,22 +8,10 @@ import NLP
 
 
 def prepare_df():
-    all_results = []
-    df = pd.DataFrame(columns=['ID', 'Название закона', 'Дата', 'Ссылка', 'Вид закона'])
-
-    for key, link in links.items():
-        results = get_laws(link, key)
-        all_results.append(results)
-
-    for result_group in all_results:
-        temp_df = pd.DataFrame(result_group, columns=['ID', 'Название закона', 'Дата', 'Ссылка', 'Вид закона'])
-        df = pd.concat([df, temp_df], ignore_index=True)
-
-    df['Ссылка'] = df['Ссылка'].apply(lambda x: "https://rg.ru/documents" + x)
-    df['Текст'] = df['Ссылка'].apply(get_law_text)
-    df['Дата'] = df['Дата'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d'))
-
-    return NLP.analyze_data(df)
+    df = get_laws(links['О персональных данных'])
+    pd.set_option('display.max_columns', None)
+    print(df)
+    #return NLP.analyze_data(df)
 
 
 def add_data(data):
@@ -33,6 +21,4 @@ def add_data(data):
     data.to_sql('data', engine, if_exists='replace', index=False)
     conn.close()
 
-item = links['О персональных данных']
-
-add_data()
+prepare_df()

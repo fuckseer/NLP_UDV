@@ -89,14 +89,10 @@ def extract_law_names(text):
     return law_names
 
 def find_law_link(prefix_match, referenced_laws):
-
-    law_name = re.search(r'"(.*?)"', prefix_match).group(1)
-    link_pattern = re.compile(r'\((.*?)\)')
-    links = link_pattern.findall(referenced_laws)
-    for link in links:
-        if law_name in link:
-            return link
-    return None
+    for text in referenced_laws:
+        if text['Текст'].startswith(prefix_match):
+            return text['Ссылка']
+    return ''
 
 def find_duplicate_quotes_tfidf(df):
     vectorized = TfidfVectorizer()

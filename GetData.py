@@ -13,11 +13,6 @@ links = {
     }
 
 
-def get_laws(url):
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    return soup
-
 def get_laws_from_database(offset, per_page):
     conn = connect_postgresql()
     cursor = conn.cursor()
@@ -38,7 +33,7 @@ def get_laws_from_database(offset, per_page):
     return laws_data
 
 
-def get_law_from_gov(url):
+def get_laws(url):
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -51,28 +46,37 @@ def get_law_from_gov(url):
         paragraphs = soup.find_all('p')
         text = get_text(paragraphs)
         doc_links = soup.find_all('a', class_='doclink')
-        referenced_laws = ['{} ({})'.format(link.getText(), link['href']) for link in doc_links]
-        referenced_laws = ' '.join(referenced_laws)
-        print(referenced_laws)
-        #print(referenced_laws)
-        #laws = extract_law_names(text)
-        #for law in laws:
-        #    law['url'] = find_law_link(law['prefix_match'], referenced_laws)
-        #laws = find_next_law_link(laws,referenced_laws)
-        #print(laws)
+        referenced_laws = [{'Текст': link.getText(), 'Ссылка': link['href']} for link in doc_links]
+        for entry in referenced_laws:
+            entry['Текст'] = entry['Текст'].replace('\xa0', ' ')
+        laws = extract_law_names(text)
+        for law in laws:
+            law['url'] = find_law_link(law['prefix_match'].strip(), referenced_laws)
+            law['url'] = 'http://pravo.gov.ru/proxy/ips/' + law['url']
+
+        straight_connection = get_referenced_laws(doc_id, 'Прямые связи')
+        back_connection = get_referenced_laws(doc_id, 'Обратные связи')
+
+        status, key_words, categories_dict = get_law_info(doc_id)
 
         data = {
             'ID': [doc_id],
+            'Cтатус': [status],
             'Название закона': [doc_title],
             'Дата': [date],
             'Ссылка': [url],
+            'Ключевые слова': [key_words],
+            'Области законодательства': [categories_dict],
             'Текст': [text],
-            'Упоминаемые законы': [referenced_laws]
+            'Упоминаемые законы': [laws],
+            'Прямые связи': [straight_connection],
+            'Обратные связи': [back_connection]
         }
 
         return pd.DataFrame(data)
     else:
         return f'Ошибка запроса: {response.status_code}'
+
 
 def get_law_info(ID):
     url = f'http://pravo.gov.ru/proxy/ips/?doc_itself=&vkart=card&nd={ID}&page=1&rdk=31'
@@ -91,9 +95,13 @@ def get_law_info(ID):
 
     return status, key_words, categories_dict
 
-def get_referenced_laws(ID):
-    url = f'http://pravo.gov.ru/proxy/ips/?docrefs.xml=&oid={ID}&refs=1'
-    responce = requests.get(url)
+
+def get_referenced_laws(ID, type):
+    connections = {
+        'Прямые связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml=&oid={ID}&refs=1',
+        'Обратные связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml&add=1&startnum=1&endnum=2000&oid={ID}&refs=0'
+    }
+    responce = requests.get(connections[type])
     soup = BeautifulSoup(responce.content, 'html.parser')
     result = []
 
@@ -117,7 +125,4 @@ def get_referenced_laws(ID):
         reference_dict['Название закона'] = docannot
 
         result.append(reference_dict)
-
     return result
-
-get_referenced_laws(102108261)
