@@ -60,14 +60,6 @@ def get_clastering_LDA(tokens):
     return topic_list
 
 
-#def extract_organization(text):
-#    nlp = ru_core_news_sm.load()
-#    doc = nlp(text)
-#    organizations = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
-#    return organizations[0] if organizations else None
-
-
-r'"(.*?)"'
 def extract_law_names(text):
     prefix_pattern = r'\b от \d+ \w+ \d+ года № \d+-ФЗ\b'
     law_names = []
