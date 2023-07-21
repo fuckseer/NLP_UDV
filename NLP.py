@@ -1,9 +1,10 @@
 import locale
 
+import numpy as np
 import pandas as pd
 from gensim import corpora, models
 from gensim.corpora import Dictionary
-from gensim.models import LdaModel
+from gensim.models import LdaModel, Word2Vec
 from gensim.topic_coherence.indirect_confirmation_measure import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import re
@@ -12,37 +13,21 @@ import nltk
 nltk.download('wordnet')
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from pymorphy3 import MorphAnalyzer
 
 from sklearn.metrics.pairwise import  pairwise_distances
+def make_word2vec(keywords):
+    keywords_tokens = word_tokenize(keywords)
+    model = Word2Vec(keywords_tokens, vector_size=100, window=5, min_count=1, workers=-1)
 
-import spacy
-import ru_core_news_sm
-
-from MakeGraph import visualize_graph
-
-
-def process_text(text):
-    stop_words = set(stopwords.words('russian'))
-    morph = MorphAnalyzer()
-
-    # Токенизация текста
-    tokens = word_tokenize(text)
-    # Оставляем только буквенные токены
-    tokens = [word for word in tokens if word.isalpha()]
-    # Приводим все токены к нижнему регистру
-    tokens = [word.lower() for word in tokens]
-    # Удаляем стоп-слова
-    tokens = [word for word in tokens if not word in stop_words]
-    # Лемматизация токенов
-    tokens = [morph.normal_forms(word)[0] for word in tokens]
-
-    return tokens
-
-
-def join_list(tab):
-    return " ".join((''.join(l) for l in tab))
+def get_keyword_vector(keyword, model):
+    if keyword in model.wv.key_to_index:
+        return model.wv[keyword]
+    else:
+        return None
+def get_similarity(vector1, vector2):
+    if vector1 is None or vector2 is None:
+        return None
+    return cosine_similarity(vector1.reshape(1, -1), vector2.reshape(1, -1))[0, 0]
 
 
 def get_clastering_LDA(tokens):
@@ -76,15 +61,25 @@ def extract_law_names(text):
         law_name_match = re.search(r'"(.*?)"', text[end_position:])
         if law_name_match:
             law_name = law_name_match.group(1)
-            law_names.append({'law_name': law_name, 'prefix_match': match.group(), 'url': None})
+            law_names.append({'law_name': law_name, 'prefix_match': match.group(), 'ID': None})
 
     return law_names
 
 def find_law_link(prefix_match, referenced_laws):
     for text in referenced_laws:
         if text['Текст'].startswith(prefix_match):
-            return text['Ссылка']
-    return ''
+            url_parts = text['Ссылка'].split('&')
+            nd_value = next((part.split('=')[1] for part in url_parts if part.startswith('nd=')), None)
+            return nd_value if nd_value else ''
+
+def get_link(ID, type):
+    links = {
+        'Текст закона':f'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd={ID}&page=1&rdk=31',
+        'Информация о законе': f'http://pravo.gov.ru/proxy/ips/?doc_itself=&vkart=card&nd={ID}&page=1&rdk=31',
+        'Прямые связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml=&oid={ID}&refs=1',
+        'Обратные связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml&add=1&startnum=1&endnum=2000&oid={ID}&refs=0'
+    }
+    return links[type]
 
 def find_duplicate_quotes_tfidf(df):
     vectorized = TfidfVectorizer()
@@ -107,29 +102,12 @@ def find_duplicate_quotes_tfidf(df):
     return duplicates_df
 
 
-def create_references_df(df):
-    references_df = pd.DataFrame(columns=['Found_Law_Index', 'Name_Index'])
-    for i, law_names in enumerate(df['Упоминаемые законы']):
-        if law_names:
-            law_names = [name.strip() for name in law_names.split(',')]
-            for law_name in law_names:
-                pattern = re.escape(law_name)
-                regex = re.compile(pattern, re.IGNORECASE)
-                for j, name in enumerate(df['Название закона']):
-                    if i != j:
-                        match = regex.search(name)
-                        if match:
-                            references_df.at[i, 'Found_Law_Index'] = i
-                            references_df.at[i, 'Name_Index'] = j
-                            break
-    return references_df
-
 def get_date(text):
-    pattern = r"(\d{2}\s\w+\s\d{4})"
+    pattern = r'\d{2}\.\d{2}\.\d{4}'
     date = re.search(pattern, text)
-    date = date.group(1) if date else None
+    date = date.group() if date else None
     locale.setlocale(locale.LC_TIME, 'ru_RU')
-    return pd.to_datetime(date, format='%d %B %Y', errors='coerce')
+    return pd.to_datetime(date, dayfirst=True)
 
 
 def get_text(text):
@@ -138,29 +116,7 @@ def get_text(text):
     text = text.replace('\n', ' ')
     return text.replace('\n\n', '\n')
 
-def analyze_data(df):
-    tokens = df['Текст']
-    tokens = tokens.apply(lambda token: process_text(token))
-    tokens = [[token for token in sublist if token not in ['ст', 'n']] for sublist in tokens]
-    tokens = pd.Series(tokens)
-    df['Токены'] = tokens
-    df["Обработанный текст"] = tokens.apply(join_list)
-    name = df['Название закона'].apply(lambda text: process_text(text))
-    name = pd.Series(name)
 
-    df['Номер темы'] = get_clastering_LDA(name)
+    #df['Номер темы'] = get_clastering_LDA(name)
     #df['Кем принят'] = df['Текст'].apply(extract_organization)
-    df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)
-    df['Упоминаемые законы'] = extract_law_names(df)
-
-    duplicates_df = find_duplicate_quotes_tfidf(df)
-    references_df = create_references_df(df)
-    print(df)
-    print(duplicates_df)
-    print(references_df)
-    visualize_graph(df, duplicates_df,references_df)
-    return df
-
-
-
-
+    #df['Утратившие силу'] = df['Текст'].str.extract(r'утратившим силу (.+?) \(', expand=False)

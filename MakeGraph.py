@@ -11,10 +11,22 @@ html_template = """
 </div>
 """
 
-color_map = {}
-for i in range(-1, 116):
-    color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
-    color_map[i] = color
+color_map = {
+    'Действует': 'green',
+    'Действует с изменениями': 'yellow',
+    'Утратил силу': 'brown'
+}
+
+status_map = {
+    'Действует': 0,
+    'Действует с изменениями': 1,
+    'Утратил силу': 2
+}
+#def get_color(color_map):
+#    for i in range(-1, 116):
+#        color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
+#        color_map[i] = color
+#    return color_map
 
 
 def visualize_graph():
@@ -22,11 +34,12 @@ def visualize_graph():
     graph.show('graph.html')
 
 
-def add_node(row, graph, color_map,html_template):
-    cluster = row['Статус']
+def add_node(row, graph, color_map, html_template):
+    cluster = row['Cтатус']
     name = row['Название закона']
     date = row['Дата']
     link = row['Ссылка']
+
     color = color_map.get(cluster, 'gray')
     node_id = row.name
     graph.add_node(node_id, label='', title=html_template.format(name=name, date=date, link=link), color=color)
@@ -36,17 +49,17 @@ def add_edges(row, graph):
     direct_connection = row['Прямые связи']
     for connection in direct_connection:
         target_node_id = connection['ID']
-        graph.add_edge(row.name, target_node_id)
+        graph.add_edge(row.name, target_node_id, color='red')
 
     reverse_connection = row['Обратные связи']
     for connection in reverse_connection:
         target_node_id = connection['ID']
-        graph.add_edge(target_node_id, row.name)
+        graph.add_edge(target_node_id, row.name, color='blue')
 
     referenced_laws = row['Упоминаемые законы']
     for connection in referenced_laws:
         target_node_id = connection['ID']
-        graph.add_edge(row.name, target_node_id)
+        graph.add_edge(row.name, target_node_id, color='purple')
 
 
 
