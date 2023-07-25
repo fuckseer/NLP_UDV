@@ -17,11 +17,6 @@ color_map = {
     'Утратил силу': 'brown'
 }
 
-status_map = {
-    'Действует': 0,
-    'Действует с изменениями': 1,
-    'Утратил силу': 2
-}
 #def get_color(color_map):
 #    for i in range(-1, 116):
 #        color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
@@ -41,25 +36,31 @@ def add_node(row, graph, color_map, html_template):
     link = row['Ссылка']
 
     color = color_map.get(cluster, 'gray')
-    node_id = row.name
-    graph.add_node(node_id, label='', title=html_template.format(name=name, date=date, link=link), color=color)
+    node_id = row['ID']
+    graph.add_node(node_id, label='', title=html_template.format(name=name, date=date, link=link),
+                   color=color, physics=False)
 
 
 def add_edges(row, graph):
     direct_connection = row['Прямые связи']
     for connection in direct_connection:
         target_node_id = connection['ID']
-        graph.add_edge(row.name, target_node_id, color='red')
+        if target_node_id in graph.get_nodes():
+            graph.add_edge(row['ID'], target_node_id, color='red', physics=False)
 
     reverse_connection = row['Обратные связи']
-    for connection in reverse_connection:
-        target_node_id = connection['ID']
-        graph.add_edge(target_node_id, row.name, color='blue')
+    if reverse_connection is not None:
+        for connection in reverse_connection:
+            target_node_id = connection['ID']
+            if target_node_id in graph.get_nodes():
+                graph.add_edge(target_node_id, row['ID'], color='blue', physics=False)
 
     referenced_laws = row['Упоминаемые законы']
-    for connection in referenced_laws:
-        target_node_id = connection['ID']
-        graph.add_edge(row.name, target_node_id, color='purple')
+    if referenced_laws is not None:
+        for connection in referenced_laws:
+            target_node_id = connection['ID']
+            if target_node_id in graph.get_nodes():
+                graph.add_edge(row['ID'], target_node_id, color='purple', physics=False)
 
 
 

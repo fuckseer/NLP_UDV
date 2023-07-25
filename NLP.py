@@ -77,7 +77,7 @@ def get_link(ID, type):
         'Текст закона':f'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd={ID}&page=1&rdk=31',
         'Информация о законе': f'http://pravo.gov.ru/proxy/ips/?doc_itself=&vkart=card&nd={ID}&page=1&rdk=31',
         'Прямые связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml=&oid={ID}&refs=1',
-        'Обратные связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml&add=1&startnum=1&endnum=2000&oid={ID}&refs=0'
+        'Обратные связи': f'http://pravo.gov.ru/proxy/ips/?docrefs.xml&add=1&startnum=1&endnum=100&oid={ID}&refs=0'
     }
     return links[type]
 

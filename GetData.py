@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+import time
 
 
 import requests
@@ -10,7 +11,11 @@ import locale
 from NLP import get_date, get_text, extract_law_names, find_law_link, get_link, get_keyword_vector
 
 links = {
-    'О персональных данных': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102108261&page=1&rdk=31'
+    'О персональных данных': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102108261&page=1&rdk=31',
+    'О безопасности критической информационной инфраструктуры Российской Федерации': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102439340&page=1&rdk=0',
+    'О связи': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102082548&page=1&rdk=92',
+    'Об инностранных инвестициях' : 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102060945&page=1&rdk=21',
+    'Об информации, информационных технологиях и о защите информации':'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102108264&page=1&rdk=69'
     }
 
 
@@ -18,8 +23,8 @@ def get_laws_from_database(offset, per_page):
     conn = connect_postgresql()
     cursor = conn.cursor()
 
-    sql_query = f'SELECT "ID", "Название закона", ' \
-                '"Дата", "Ссылка", "Вид закона", "Текст", ' \
+    sql_query = f'SELECT "ID", "Статус", ' \
+                '"Название закона", "Ссылка", "Вид закона", "Текст", ' \
                 '"Токены", "Обработанный текст", "Номер темы", ' \
                 '"Утратившие силу", "Упоминаемые законы" ' \
                 f"FROM data LIMIT {per_page} OFFSET {offset};"
@@ -35,7 +40,7 @@ def get_laws_from_database(offset, per_page):
 
 
 def get_laws(url):
-    response = requests.get(url)
+    response = requests.get(url, timeout=20)
 
     if response.status_code == 200:
 
@@ -84,7 +89,7 @@ def get_laws(url):
 
 def get_law_info(ID):
     url = get_link(ID, 'Информация о законе')
-    responce = requests.get(url)
+    responce = requests.get(url, timeout=20)
     soup = BeautifulSoup(responce.content, 'html.parser')
     status = soup.find('div', class_='DC_status').text
     date = get_date(soup.text)
@@ -107,31 +112,44 @@ def get_law_info(ID):
 
 def get_connections(ID, type):
     url = get_link(ID, type)
-    responce = requests.get(url)
-    soup = BeautifulSoup(responce.content, 'html.parser')
-    result = []
+    max_retries = 10
+    retry_delay = 10
+    for attempt in range(max_retries):
+        try:
+            responce = requests.get(url, timeout=60)
+            if responce.status_code == 200:
+                soup = BeautifulSoup(responce.content, 'html.parser')
+                result = []
 
-    for reference_elem in soup.find_all('reference'):
-        reference_dict = {}
+                for reference_elem in soup.find_all('reference'):
+                    reference_dict = {}
 
-        refkind = reference_elem.find('refkind').text
-        oid = reference_elem.find('docname').get('oid')
-        rdk = reference_elem.find('docname').get('rdk')
-        docname_text = reference_elem.find('docname').text.strip()
-        docannot = reference_elem.find('docannot').text
+                    refkind = reference_elem.find('refkind').text
+                    oid = reference_elem.find('docname').get('oid')
+                    rdk = reference_elem.find('docname').get('rdk')
+                    docname_text = reference_elem.find('docname').text.strip()
+                    docannot = reference_elem.find('docannot').text
 
-        docname_parts = docname_text.split(' от ')
-        doc_type = docname_parts[0]
-        doc_date = docname_parts[1].split(' № ')[0]
+                    docname_parts = docname_text.split(' от ')
+                    doc_type = docname_parts[0]
+                    doc_date = docname_parts[1].split(' № ')[0]
 
-        reference_dict['Вид'] = refkind
-        reference_dict['ID'] = oid
-        reference_dict['Тип'] = doc_type
-        reference_dict['Дата'] = doc_date
-        reference_dict['Название закона'] = docannot
+                    reference_dict['Вид'] = refkind
+                    reference_dict['ID'] = oid
+                    reference_dict['Тип'] = doc_type
+                    reference_dict['Дата'] = doc_date
+                    reference_dict['Название закона'] = docannot
 
-        result.append(reference_dict)
-    return result
+                    result.append(reference_dict)
+                return result
+            else:
+                print(responce.status_code)
+
+        except requests.exceptions.RequestException as e:
+            print(e)
+
+        time.sleep(retry_delay)
+    print(f'Не удалось получить ответ от {url} после {max_retries} попыток')
 
 # for law in laws:
 #    key_words = law['key_words'].split()
