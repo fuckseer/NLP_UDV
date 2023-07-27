@@ -22,36 +22,10 @@
 <body>
     <h1>Document Laws</h1>
     {{ pagination.info }}
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Название закона</th>
-            <th>Дата</th>
-            <th>Ссылка</th>
-            <th>Вид закона</th>
-            <th>Текст</th>
-            <th>Токены</th>
-            <th>Обработанный текст</th>
-            <th>Номер темы</th>
-            <th>Утратившие силу</th>
-            <th>Упоминаемые законы</th>
-        </tr>
-        {% for law in laws_data %}
-        <tr>
-            <td>{{ law['ID'] }}</td>
-            <td>{{ law['Название закона'] }}</td>
-            <td>{{ law['Дата'] }}</td>
-            <td>{{ law['Ссылка'] }}</td>
-            <td>{{ law['Вид закона'] }}</td>
-            <td>{{ law['Текст'] }}</td>
-            <td>{{ law['Токены'] }}</td>
-            <td>{{ law['Обработанный текст'] }}</td>
-            <td>{{ law['Номер темы'] }}</td>
-            <td>{{ law['Утратившие силу'] }}</td>
-            <td>{{ law['Упоминаемые законы'] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+        <div class="container">
+            <h1>Table</h1>
+            {{table_html |safe }}
+        </div>
     {{ pagination.links }}
 </body>
 </html>

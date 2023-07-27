@@ -1,14 +1,20 @@
+import json
 import re
 from datetime import datetime
 import time
 
-
+import psycopg2.extras
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+from psycopg2._json import Json
+import psycopg2.extras
+from psycopg2.extensions import register_adapter
+from srsly.ujson import ujson
+
 from ConnectDB import connect_postgresql
 import locale
-from NLP import get_date, get_text, extract_law_names, find_law_link, get_link, get_keyword_vector
+from NLP import get_date, get_text, extract_law_names, find_law_link, get_link, get_keyword_vector, extract_json
 
 links = {
     'О персональных данных': 'http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102108261&page=1&rdk=31',
@@ -19,24 +25,56 @@ links = {
     }
 
 
+def double_json_decoder(value):
+    try:
+        decoded_value = json.loads(value)
+        for key, inner_value in decoded_value.items():
+            decoded_value[key] = json.loads(inner_value)
+        return decoded_value
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
 def get_laws_from_database(offset, per_page):
+
     conn = connect_postgresql()
     cursor = conn.cursor()
 
-    sql_query = f'SELECT "ID", "Статус", ' \
-                '"Название закона", "Ссылка", "Вид закона", "Текст", ' \
-                '"Токены", "Обработанный текст", "Номер темы", ' \
-                '"Утратившие силу", "Упоминаемые законы" ' \
+    # Зарегистрируйте адаптер для декодирования JSON-строк в словари
+
+    sql_query = f'SELECT "ID", "Cтатус", ' \
+                '"Название закона", "Дата", "Ссылка", "Ключевые слова", ' \
+                '"Области законодательства", "Текст", "Упоминаемые законы", ' \
+                '"Прямые связи", "Обратные связи" ' \
                 f"FROM data LIMIT {per_page} OFFSET {offset};"
 
     cursor.execute(sql_query)
 
+    # Извлекаем все строки из курсора
     laws_data = cursor.fetchall()
+
+    columns = ['ID', 'Cтатус', 'Название закона',
+               'Дата', 'Ссылка', 'Ключевые слова', 'Области законодательства', 'Текст', 'Упоминаемые законы',
+               'Прямые связи', 'Обратные связи']
+    laws_data_dict = [dict(zip(columns, row)) for row in laws_data]
+    laws_data = pd.DataFrame(laws_data_dict)
+    print(laws_data)
+    for col in ['Области законодательства', 'Упоминаемые законы', 'Прямые связи', 'Обратные связи']:
+        if col != 'Области законодательства':
+            laws_data[col] = laws_data[col].str.strip('{}')
+            print('strip сделан')
+            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\"', r'"', str(x)))
+            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\\\', r'\\', str(x)))
+            laws_data[col] = laws_data[col].apply(extract_json)
+        else:
+            laws_data[col] = laws_data[col].apply(extract_json)
+
+
 
     cursor.close()
     conn.close()
 
     return laws_data
+
 
 
 def get_laws(url):
@@ -48,8 +86,6 @@ def get_laws(url):
         doc_id = url.split('nd=')[1].split('&')[0]
         doc_title = soup.find('title').getText()
         if 'Текст документа отсутствует' not in soup.text:
-            #date_element = soup.find_all('p', class_='I')[-1]
-            #date = get_date(date_element.text)
             paragraphs = soup.find_all('p')
             text = get_text(paragraphs)
             doc_links = soup.find_all('a', class_='doclink')
@@ -60,7 +96,6 @@ def get_laws(url):
             for law in laws:
                 law['ID'] = find_law_link(law['prefix_match'].strip(), referenced_laws)
         else:
-            date = None
             text = None
             laws = None
         straight_connection = get_connections(doc_id, 'Прямые связи')
@@ -150,7 +185,3 @@ def get_connections(ID, type):
 
         time.sleep(retry_delay)
     print(f'Не удалось получить ответ от {url} после {max_retries} попыток')
-
-# for law in laws:
-#    key_words = law['key_words'].split()
-#    law['keyword_vectors'] = [get_keyword_vector(keyword) for keyword in key_words]

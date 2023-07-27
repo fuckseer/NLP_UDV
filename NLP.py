@@ -1,3 +1,4 @@
+import json
 import locale
 
 import numpy as np
@@ -116,6 +117,18 @@ def get_text(text):
     text = text.replace('\n', ' ')
     return text.replace('\n\n', '\n')
 
+
+
+def extract_json(text):
+    if text is not None:
+        print(text)
+        json_strings = re.findall(r'{.*?}', text)
+        print(json_strings)
+        # Декодируем каждую JSON-строку
+        json_objects = [json.loads(json_str) for json_str in json_strings]
+        print(json_objects)
+
+        return json_objects
 
     #df['Номер темы'] = get_clastering_LDA(name)
     #df['Кем принят'] = df['Текст'].apply(extract_organization)
