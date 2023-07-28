@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Document Laws</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
     <style>
         table {
             border-collapse: collapse;
@@ -17,15 +18,123 @@
         th {
             background-color: #f2f2f2;
         }
+
+        /* Задайте ширину каждого столбца */
+        th.column-id {
+            width: 5%;
+        }
+
+        th.column-status {
+            width: 8%;
+        }
+
+        th.column-law-name {
+            width: 15%;
+        }
+
+        th.column-date {
+            width: 8%;
+        }
+
+        th.column-link {
+            width: 10%;
+        }
+
+        th.column-keywords {
+            width: 12%;
+        }
+
+        th.column-area {
+            width: 12%;
+        }
+
+        th.column-text {
+            width: 25%;
+        }
+
+        th.column-referenced-laws {
+            width: 25%;
+        }
+
+        th.column-direct-laws {
+            width: 25%;
+        }
+
+        td.hover-id {
+            position: relative;
+        }
+
+        td.hover-id span {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 5px;
+            z-index: 1;
+        }
+
+        td.hover-id:hover span {
+            display: block;
+        }
+
     </style>
 </head>
 <body>
     <h1>Document Laws</h1>
     {{ pagination.info }}
-        <div class="container">
-            <h1>Table</h1>
-            {{table_html |safe }}
-        </div>
+    <div class="container">
+        <h1>Table</h1>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th class="column-id">ID</th>
+                    <th class="column-status">Cтатус</th>
+                    <th class="column-law-name">Название закона</th>
+                    <th class="column-date">Дата</th>
+                    <th class="column-link">Ссылка</th>
+                    <th class="column-keywords">Ключевые слова</th>
+                    <th class="column-area">Области законодательства</th>
+                    <th class="column-text">Текст</th>
+                    <th class="column-referenced-laws">Упоминаемые законы</th>
+                    <th class="column-direct-laws">Прямые связи</th>
+                    <th class="column-reverse-laws">Обратные связи</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in table_html.iterrows() %}
+                <tr>
+                    <td>{{ row[1]['ID'] }}</td>
+                    <td>{{ row[1]['Cтатус'] }}</td>
+                    <td>{{ row[1]['Название закона'] }}</td>
+                    <td>{{ row[1]['Дата'] }}</td>
+                    <td>{{ row[1]['Ссылка'] }}</td>
+                    <td>{{ row[1]['Ключевые слова'] }}</td>
+                    <td>{{ row[1]['Области законодательства'] }}</td>
+                    <td>{{ row[1]['Текст'] }}</td>
+                    <td class="hover-id">
+                        {% for law in row[1]['Упоминаемые законы'] %}
+                            {{ law ['law_name'] }}
+                            <span> {{ law['ID'] }} </span>
+                        {% endfor %}
+                    </td>
+                    <td class="hover-id">
+                        {% for law in row[1]['Прямые связи'] %}
+                            {{ law ['Название закона'] }}
+                            <span>{{ law ['ID'] }}</span>
+                        {% endfor %}
+                    <td class="hover-id">
+                        {% for law in row[1]['Обратные связи'] %}
+                            {{ law ['Название закона'] }}
+                            <span>{{ law ['ID'] }}</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {{ pagination.links }}
 </body>
 </html>
+
+

@@ -1,8 +1,8 @@
 import random
 from pyvis.network import Network
 
-graph = Network(directed=True)
-
+graph = Network(directed=True, height="750px", width="100%", bgcolor="#222222", font_color="white",
+                select_menu=True, filter_menu=True)
 html_template = """
 <div style="background-color: #f9f9f9; padding: 10px;">
   <h3>{name}</h3>
