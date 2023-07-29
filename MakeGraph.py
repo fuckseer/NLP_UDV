@@ -1,8 +1,8 @@
-import random
 from pyvis.network import Network
 
-graph = Network(directed=True, height="750px", width="100%", bgcolor="#222222", font_color="white",
+graph = Network(directed=True, height="1000px", width="100%", bgcolor="#222222", font_color="white",
                 select_menu=True, filter_menu=True)
+graph.barnes_hut()
 html_template = """
 <div style="background-color: #f9f9f9; padding: 10px;">
   <h3>{name}</h3>
@@ -26,7 +26,8 @@ color_map = {
 
 def visualize_graph():
     graph.show_buttons(filter_=['nodes'])
-    graph.show('graph.html')
+    graph.repulsion(node_distance=500, spring_length=500)
+    graph.show('templates/graph.html')
 
 
 def add_node(row, graph, color_map, html_template):
@@ -38,7 +39,7 @@ def add_node(row, graph, color_map, html_template):
     color = color_map.get(cluster, 'gray')
     node_id = row['ID']
     graph.add_node(node_id, label='', title=html_template.format(name=name, date=date, link=link),
-                   color=color, physics=False)
+                   color=color)
 
 
 def add_edges(row, graph):
@@ -46,21 +47,37 @@ def add_edges(row, graph):
     for connection in direct_connection:
         target_node_id = connection['ID']
         if target_node_id in graph.get_nodes():
-            graph.add_edge(row['ID'], target_node_id, color='red', physics=False)
+            edge_id = (row['ID'], target_node_id)
+            if edge_id in graph.edges:
+                current_weight = graph.edges[edge_id]['value']
+                graph.edges[edge_id]['value'] = current_weight + 1
+            else:
+                graph.add_edge(row['ID'], target_node_id, color='red', value=0.5)
 
     reverse_connection = row['Обратные связи']
     if reverse_connection is not None:
         for connection in reverse_connection:
             target_node_id = connection['ID']
             if target_node_id in graph.get_nodes():
-                graph.add_edge(target_node_id, row['ID'], color='blue', physics=False)
+                edge_id = (target_node_id, row['ID'])
+                if edge_id in graph.edges:
+                    current_weight = graph.edges[edge_id]['value']
+                    graph.edges[edge_id]['value'] = current_weight + 1
+                else:
+                    graph.add_edge(target_node_id, row['ID'], color='blue', value=0.5)
 
     referenced_laws = row['Упоминаемые законы']
     if referenced_laws is not None:
         for connection in referenced_laws:
             target_node_id = connection['ID']
             if target_node_id in graph.get_nodes():
-                graph.add_edge(row['ID'], target_node_id, color='purple', physics=False)
+                edge_id = (row['ID'], target_node_id)
+                if edge_id in graph.edges:
+                    current_weight = graph.edges[edge_id]['value']
+                    graph.edges[edge_id]['value'] = current_weight + 1
+                else:
+                    graph.add_edge(row['ID'], target_node_id, color='yellow', value=0.5)
+
 
 
 

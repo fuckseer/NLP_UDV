@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_paginate import Pagination, get_page_parameter
-from GetData import get_laws_from_database
+from GetData import get_laws_from_database, get_laws_from_database_byname
 from NLP import extract_json
 import MakeGraph
 
@@ -34,10 +34,12 @@ def index():
 
 @app.route('/graph')
 def make_graph():
-    laws_data_dict = get_laws_from_database(0, per_page=100)
+    laws_data_dict = get_laws_from_database(0, 500)
     for _, row in laws_data_dict.iterrows():
         MakeGraph.add_node(row, MakeGraph.graph, MakeGraph.color_map, MakeGraph.html_template)
         MakeGraph.add_edges(row, MakeGraph.graph)
     MakeGraph.visualize_graph()
+    return render_template('graph.html')
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -39,7 +39,6 @@ def get_laws_from_database(offset, per_page):
     conn = connect_postgresql()
     cursor = conn.cursor()
 
-    # Зарегистрируйте адаптер для декодирования JSON-строк в словари
 
     sql_query = f'SELECT "ID", "Cтатус", ' \
                 '"Название закона", "Дата", "Ссылка", "Ключевые слова", ' \
@@ -49,7 +48,6 @@ def get_laws_from_database(offset, per_page):
 
     cursor.execute(sql_query)
 
-    # Извлекаем все строки из курсора
     laws_data = cursor.fetchall()
 
     columns = ['ID', 'Cтатус', 'Название закона',
@@ -75,7 +73,45 @@ def get_laws_from_database(offset, per_page):
 
     return laws_data
 
+def get_laws_from_database_byname(name):
 
+    conn = connect_postgresql()
+    cursor = conn.cursor()
+
+
+    sql_query = f'SELECT "ID", "Cтатус", ' \
+                '"Название закона", "Дата", "Ссылка", "Ключевые слова", ' \
+                '"Области законодательства", "Текст", "Упоминаемые законы", ' \
+                '"Прямые связи", "Обратные связи" ' \
+                'FROM data ' \
+                f'WHERE "Название закона" = {name};'
+
+    cursor.execute(sql_query)
+
+    laws_data = cursor.fetchall()
+
+    columns = ['ID', 'Cтатус', 'Название закона',
+               'Дата', 'Ссылка', 'Ключевые слова', 'Области законодательства', 'Текст', 'Упоминаемые законы',
+               'Прямые связи', 'Обратные связи']
+    laws_data_dict = [dict(zip(columns, row)) for row in laws_data]
+    laws_data = pd.DataFrame(laws_data_dict)
+    print(laws_data)
+    for col in ['Области законодательства', 'Упоминаемые законы', 'Прямые связи', 'Обратные связи']:
+        if col != 'Области законодательства':
+            laws_data[col] = laws_data[col].str.strip('{}')
+            print('strip сделан')
+            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\"', r'"', str(x)))
+            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\\\', r'\\', str(x)))
+            laws_data[col] = laws_data[col].apply(extract_json)
+        else:
+            laws_data[col] = laws_data[col].apply(extract_json)
+
+
+
+    cursor.close()
+    conn.close()
+
+    return laws_data
 
 def get_laws(url):
     response = requests.get(url, timeout=20)
@@ -185,3 +221,4 @@ def get_connections(ID, type):
 
         time.sleep(retry_delay)
     print(f'Не удалось получить ответ от {url} после {max_retries} попыток')
+

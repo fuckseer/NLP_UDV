@@ -84,7 +84,8 @@
     {{ pagination.info }}
     <div class="container">
         <h1>Table</h1>
-        <table class="table table-bordered">
+        <a href="{{url_for('make_graph') }}" class="btn btn-primary">Перейти к графу</a>
+        <table class="table table-bordered table-hover">
             <thead>
                 <tr>
                     <th class="column-id">ID</th>
