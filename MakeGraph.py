@@ -27,7 +27,7 @@ color_map = {
 def visualize_graph():
     graph.show_buttons(filter_=['nodes'])
     graph.repulsion(node_distance=500, spring_length=500)
-    graph.show('templates/graph.html')
+    graph.show('graph.html')
 
 
 def add_node(row, graph, color_map, html_template):
@@ -52,7 +52,7 @@ def add_edges(row, graph):
                 current_weight = graph.edges[edge_id]['value']
                 graph.edges[edge_id]['value'] = current_weight + 1
             else:
-                graph.add_edge(row['ID'], target_node_id, color='red', value=0.5)
+                graph.add_edge(row['ID'], target_node_id, color='red', value=0.01)
 
     reverse_connection = row['Обратные связи']
     if reverse_connection is not None:
@@ -64,7 +64,7 @@ def add_edges(row, graph):
                     current_weight = graph.edges[edge_id]['value']
                     graph.edges[edge_id]['value'] = current_weight + 1
                 else:
-                    graph.add_edge(target_node_id, row['ID'], color='blue', value=0.5)
+                    graph.add_edge(target_node_id, row['ID'], color='blue', value=0.01)
 
     referenced_laws = row['Упоминаемые законы']
     if referenced_laws is not None:
@@ -76,7 +76,7 @@ def add_edges(row, graph):
                     current_weight = graph.edges[edge_id]['value']
                     graph.edges[edge_id]['value'] = current_weight + 1
                 else:
-                    graph.add_edge(row['ID'], target_node_id, color='yellow', value=0.5)
+                    graph.add_edge(row['ID'], target_node_id, color='yellow', value=0.01)
 
 
 

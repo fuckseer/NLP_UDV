@@ -1,3 +1,4 @@
+import pandas as pd
 from flask import Flask, render_template, request
 from flask_paginate import Pagination, get_page_parameter
 from GetData import get_laws_from_database, get_laws_from_database_byname
@@ -34,12 +35,40 @@ def index():
 
 @app.route('/graph')
 def make_graph():
-    laws_data_dict = get_laws_from_database(0, 500)
+    laws_data_dict = get_laws_from_database_byname("'О персональных данных'")
+    laws_data_dict.drop_duplicates(subset='ID', inplace=True)
+    for _, row in laws_data_dict.iterrows():
+        for law in row['Упоминаемые законы']:
+            law_name = "'" + law['law_name'] + "'"
+            print(law_name)
+            new_row = get_laws_from_database_byname(law_name)
+            pd.set_option("display.max_columns", None)
+            print("Новая строка",new_row)
+            if not new_row.empty:
+                print(new_row)
+                laws_data_dict = pd.concat([laws_data_dict, pd.DataFrame([new_row.iloc[0]])], ignore_index=True)
+        print("Итог", laws_data_dict)
+
     for _, row in laws_data_dict.iterrows():
         MakeGraph.add_node(row, MakeGraph.graph, MakeGraph.color_map, MakeGraph.html_template)
+        print(MakeGraph.graph.get_nodes())
         MakeGraph.add_edges(row, MakeGraph.graph)
+
     MakeGraph.visualize_graph()
     return render_template('graph.html')
+
+@app.route('/wholegraph')
+def make_whole_graph():
+    laws_data = get_laws_from_database(0,500)
+    for _, row in laws_data.iterrows():
+        MakeGraph.add_node(row, MakeGraph.graph, MakeGraph.color_map,MakeGraph.html_template)
+        MakeGraph.add_edges(row, MakeGraph.graph)
+
+    MakeGraph.visualize_graph()
+
+    return render_template('graph.html')
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

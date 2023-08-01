@@ -78,7 +78,6 @@ def get_laws_from_database_byname(name):
     conn = connect_postgresql()
     cursor = conn.cursor()
 
-
     sql_query = f'SELECT "ID", "Cтатус", ' \
                 '"Название закона", "Дата", "Ссылка", "Ключевые слова", ' \
                 '"Области законодательства", "Текст", "Упоминаемые законы", ' \
@@ -96,15 +95,16 @@ def get_laws_from_database_byname(name):
     laws_data_dict = [dict(zip(columns, row)) for row in laws_data]
     laws_data = pd.DataFrame(laws_data_dict)
     print(laws_data)
-    for col in ['Области законодательства', 'Упоминаемые законы', 'Прямые связи', 'Обратные связи']:
-        if col != 'Области законодательства':
-            laws_data[col] = laws_data[col].str.strip('{}')
-            print('strip сделан')
-            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\"', r'"', str(x)))
-            laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\\\', r'\\', str(x)))
-            laws_data[col] = laws_data[col].apply(extract_json)
-        else:
-            laws_data[col] = laws_data[col].apply(extract_json)
+    if not laws_data.empty:
+        for col in ['Области законодательства', 'Упоминаемые законы', 'Прямые связи', 'Обратные связи']:
+            if col != 'Области законодательства':
+                laws_data[col] = laws_data[col].str.strip('{}')
+                laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\"', r'"', str(x)))
+                laws_data[col] = laws_data[col].apply(lambda x: re.sub(r'\\\\', r'\\', str(x)))
+                laws_data[col] = laws_data[col].apply(extract_json)
+            else:
+                print(laws_data)
+                laws_data[col] = laws_data[col].apply(extract_json)
 
 
 
@@ -222,3 +222,4 @@ def get_connections(ID, type):
         time.sleep(retry_delay)
     print(f'Не удалось получить ответ от {url} после {max_retries} попыток')
 
+print(get_laws_from_database_byname("'О проведении эксперимента по установлению специального регулирования в целях создания необходимых условий для разработки и внедрения технологий искусственного интеллекта в субъекте Российской Федерации - городе федерального значения Москве и внесении изменений в статьи 6 и 10 Федерального закона'"))
