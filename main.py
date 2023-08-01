@@ -59,7 +59,7 @@ def make_graph():
 
 @app.route('/wholegraph')
 def make_whole_graph():
-    laws_data = get_laws_from_database(0,500)
+    laws_data = pd.read_csv('data.csv')
     for _, row in laws_data.iterrows():
         MakeGraph.add_node(row, MakeGraph.graph, MakeGraph.color_map,MakeGraph.html_template)
         MakeGraph.add_edges(row, MakeGraph.graph)

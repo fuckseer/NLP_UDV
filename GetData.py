@@ -222,4 +222,6 @@ def get_connections(ID, type):
         time.sleep(retry_delay)
     print(f'Не удалось получить ответ от {url} после {max_retries} попыток')
 
-print(get_laws_from_database_byname("'О проведении эксперимента по установлению специального регулирования в целях создания необходимых условий для разработки и внедрения технологий искусственного интеллекта в субъекте Российской Федерации - городе федерального значения Москве и внесении изменений в статьи 6 и 10 Федерального закона'"))
+df = pd.DataFrame(get_laws_from_database(0, 500))
+df.drop_duplicates(subset='ID', inplace=True)
+df.to_csv('data.csv', index=False)
